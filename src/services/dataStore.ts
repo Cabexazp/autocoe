@@ -7,182 +7,20 @@ import {
   CoevaluationRecord, 
   NotificationItem 
 } from '../types';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import { getSupabaseClient } from './supabase';
 
 const STORAGE_KEYS = {
-  GROUPS: 'edugrade_groups',
-  SUBJECTS: 'edugrade_subjects',
-  ACTIVITIES: 'edugrade_activities',
-  STUDENTS: 'edugrade_students',
-  GRADES: 'edugrade_grades',
-  COEVALUATIONS: 'edugrade_coevaluations',
-  NOTIFICATIONS: 'edugrade_notifications',
+  GROUPS: 'edugrade_groups_v3',
+  SUBJECTS: 'edugrade_subjects_v3',
+  ACTIVITIES: 'edugrade_activities_v3',
+  STUDENTS: 'edugrade_students_v3',
+  GRADES: 'edugrade_grades_v3',
+  COEVALUATIONS: 'edugrade_coevaluations_v3',
+  NOTIFICATIONS: 'edugrade_notifications_v3',
 };
 
-// Initial realistic seed data so the app works seamlessly from the start
-const INITIAL_GROUPS: GradeGroup[] = [
-  {
-    id: 'grp-10a',
-    name: '10° Grado A',
-    code: '10A-2026',
-    description: 'Décimo grado - Educación Media Académica',
-    academicYear: '2026',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'grp-11b',
-    name: '11° Grado B',
-    code: '11B-2026',
-    description: 'Undécimo grado - Promoción 2026',
-    academicYear: '2026',
-    createdAt: new Date().toISOString(),
-  },
-];
-
-const INITIAL_SUBJECTS: Subject[] = [
-  {
-    id: 'sub-mat-10',
-    groupId: 'grp-10a',
-    name: 'Matemáticas y Cálculo',
-    code: 'MAT-101',
-    teacherName: 'Prof. Carlos Mendoza',
-    color: '#3b82f6',
-    creditHours: 5,
-  },
-  {
-    id: 'sub-fis-10',
-    groupId: 'grp-10a',
-    name: 'Física Clásica',
-    code: 'FIS-102',
-    teacherName: 'Dra. Elena Ramos',
-    color: '#8b5cf6',
-    creditHours: 4,
-  },
-  {
-    id: 'sub-esp-10',
-    groupId: 'grp-10a',
-    name: 'Lengua y Literatura',
-    code: 'LIT-103',
-    teacherName: 'Lic. Andrés Salgado',
-    color: '#10b981',
-    creditHours: 3,
-  },
-];
-
-const INITIAL_ACTIVITIES: Activity[] = [
-  {
-    id: 'act-mat-1',
-    subjectId: 'sub-mat-10',
-    groupId: 'grp-10a',
-    title: 'Taller 1: Ecuaciones Cuadráticas y Gráficas',
-    description: 'Resolver los 10 ejercicios prácticos del módulo 2 en grupos de trabajo.',
-    dueDate: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(),
-    weightPercentage: 25,
-    maxScore: 5.0,
-    allowCoevaluation: true,
-    coevaluationActive: true,
-    coevaluationDueDate: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString(),
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'act-fis-1',
-    subjectId: 'sub-fis-10',
-    groupId: 'grp-10a',
-    title: 'Laboratorio de Cinemática y Movimiento',
-    description: 'Informe grupal de caída libre y análisis de vectores de aceleración.',
-    dueDate: new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString(),
-    weightPercentage: 30,
-    maxScore: 5.0,
-    allowCoevaluation: true,
-    coevaluationActive: false,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'act-esp-1',
-    subjectId: 'sub-esp-10',
-    groupId: 'grp-10a',
-    title: 'Ensayo Crítico de Novela Contemporánea',
-    description: 'Ensayo argumentativo de 1200 palabras con normas APA.',
-    dueDate: new Date(Date.now() + 12 * 24 * 60 * 60 * 1000).toISOString(),
-    weightPercentage: 20,
-    maxScore: 5.0,
-    allowCoevaluation: false,
-    coevaluationActive: false,
-    createdAt: new Date().toISOString(),
-  },
-];
-
-// Seed students for group 10A
-const INITIAL_STUDENTS: Student[] = [
-  {
-    id: '1001234567',
-    fullName: 'Alejandro Morales Rivera',
-    passwordHash: 'estudiante123',
-    groupId: 'grp-10a',
-    email: 'alejandro.morales@colegio.edu',
-    registeredAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: '1009876543',
-    fullName: 'Valentina Restrepo Castro',
-    passwordHash: 'estudiante123',
-    groupId: 'grp-10a',
-    email: 'valentina.restrepo@colegio.edu',
-    registeredAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: '1005544332',
-    fullName: 'Mateo Gómez Cárdenas',
-    passwordHash: 'estudiante123',
-    groupId: 'grp-10a',
-    email: 'mateo.gomez@colegio.edu',
-    registeredAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-];
-
-const INITIAL_GRADES: GradeRecord[] = [
-  {
-    id: 'grd-1',
-    activityId: 'act-mat-1',
-    studentId: '1001234567',
-    score: 4.6,
-    feedback: 'Excelente desarrollo analítico de los vértices y raíces.',
-    gradedAt: new Date().toISOString(),
-    gradedBy: 'Prof. Carlos Mendoza',
-  },
-  {
-    id: 'grd-2',
-    activityId: 'act-mat-1',
-    studentId: '1009876543',
-    score: 4.9,
-    feedback: 'Procedimiento impecable y comprobaciones completas.',
-    gradedAt: new Date().toISOString(),
-    gradedBy: 'Prof. Carlos Mendoza',
-  },
-];
-
-const INITIAL_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: 'notif-1',
-    groupId: 'grp-10a',
-    title: 'Nueva Actividad Asignada',
-    message: 'Taller 1: Ecuaciones Cuadráticas ha sido publicado para 10° Grado A.',
-    type: 'activity_due',
-    activityId: 'act-mat-1',
-    isRead: false,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'notif-2',
-    groupId: 'grp-10a',
-    title: 'Coevaluación Habilitada',
-    message: 'El docente habilitó la coevaluación entre compañeros para el Taller 1 de Matemáticas.',
-    type: 'coevaluation_open',
-    activityId: 'act-mat-1',
-    isRead: false,
-    createdAt: new Date().toISOString(),
-  },
-];
+const STORAGE_CLEAN_VERSION_KEY = 'edugrade_blank_init_v3';
 
 type ChangeListener = () => void;
 const listeners = new Set<ChangeListener>();
@@ -204,7 +42,7 @@ function notifyListeners() {
   });
 }
 
-// In-memory caches
+// In-memory caches - starts completely empty by default as requested
 let groupsCache: GradeGroup[] = [];
 let subjectsCache: Subject[] = [];
 let activitiesCache: Activity[] = [];
@@ -236,204 +74,69 @@ function saveToStorage<T>(key: string, data: T[]) {
   }
 }
 
-// Initialize state
+// Initialize state with completely clean/empty lists
 export function initStore() {
-  groupsCache = loadFromStorage(STORAGE_KEYS.GROUPS, INITIAL_GROUPS);
-  subjectsCache = loadFromStorage(STORAGE_KEYS.SUBJECTS, INITIAL_SUBJECTS);
-  activitiesCache = loadFromStorage(STORAGE_KEYS.ACTIVITIES, INITIAL_ACTIVITIES);
-  studentsCache = loadFromStorage(STORAGE_KEYS.STUDENTS, INITIAL_STUDENTS);
-  gradesCache = loadFromStorage(STORAGE_KEYS.GRADES, INITIAL_GRADES);
+  if (typeof window !== 'undefined') {
+    // Check if clean version is initialized or if legacy demo data exists
+    const isCleanVersion = localStorage.getItem(STORAGE_CLEAN_VERSION_KEY);
+    const legacyGroups = localStorage.getItem('edugrade_groups') || '';
+
+    // If first time with v3 or legacy demo data present, ensure clean slate
+    if (!isCleanVersion || legacyGroups.includes('grp-10a')) {
+      // Clear legacy keys
+      localStorage.removeItem('edugrade_groups');
+      localStorage.removeItem('edugrade_subjects');
+      localStorage.removeItem('edugrade_activities');
+      localStorage.removeItem('edugrade_students');
+      localStorage.removeItem('edugrade_grades');
+      localStorage.removeItem('edugrade_coevaluations');
+      localStorage.removeItem('edugrade_notifications');
+
+      // Set clean empty state
+      localStorage.setItem(STORAGE_KEYS.GROUPS, JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEYS.SUBJECTS, JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEYS.ACTIVITIES, JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEYS.GRADES, JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEYS.COEVALUATIONS, JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify([]));
+      localStorage.setItem(STORAGE_CLEAN_VERSION_KEY, 'true');
+    }
+  }
+
+  groupsCache = loadFromStorage(STORAGE_KEYS.GROUPS, []);
+  subjectsCache = loadFromStorage(STORAGE_KEYS.SUBJECTS, []);
+  activitiesCache = loadFromStorage(STORAGE_KEYS.ACTIVITIES, []);
+  studentsCache = loadFromStorage(STORAGE_KEYS.STUDENTS, []);
+  gradesCache = loadFromStorage(STORAGE_KEYS.GRADES, []);
   coevaluationsCache = loadFromStorage(STORAGE_KEYS.COEVALUATIONS, []);
-  notificationsCache = loadFromStorage(STORAGE_KEYS.NOTIFICATIONS, INITIAL_NOTIFICATIONS);
+  notificationsCache = loadFromStorage(STORAGE_KEYS.NOTIFICATIONS, []);
 
   if (typeof window !== 'undefined') {
     window.addEventListener('storage', (event) => {
       if (Object.values(STORAGE_KEYS).includes(event.key || '')) {
-        initStore();
+        groupsCache = loadFromStorage(STORAGE_KEYS.GROUPS, []);
+        subjectsCache = loadFromStorage(STORAGE_KEYS.SUBJECTS, []);
+        activitiesCache = loadFromStorage(STORAGE_KEYS.ACTIVITIES, []);
+        studentsCache = loadFromStorage(STORAGE_KEYS.STUDENTS, []);
+        gradesCache = loadFromStorage(STORAGE_KEYS.GRADES, []);
+        coevaluationsCache = loadFromStorage(STORAGE_KEYS.COEVALUATIONS, []);
+        notificationsCache = loadFromStorage(STORAGE_KEYS.NOTIFICATIONS, []);
         notifyListeners();
       }
     });
   }
 
-  // Try initial sync with Supabase if configured
-  syncWithSupabase().catch((err) => {
-    console.log('Supabase sync background notice:', err?.message || err);
-  });
-}
-
-// Realtime channel reference
-let realtimeChannel: ReturnType<NonNullable<ReturnType<typeof getSupabaseClient>>['channel']> | null = null;
-
-export function setupSupabaseRealtime() {
+  // Try initial sync with Supabase ONLY if explicitly configured
   const supabase = getSupabaseClient();
-  if (!supabase) return;
-
-  if (realtimeChannel) {
-    supabase.removeChannel(realtimeChannel);
-  }
-
-  try {
-    realtimeChannel = supabase
-      .channel('edugrade-live-sync')
-      .on('postgres_changes', { event: '*', schema: 'public' }, () => {
-        syncWithSupabase();
-      })
-      .subscribe();
-  } catch (err) {
-    console.warn('Realtime subscription error:', err);
+  if (supabase) {
+    syncWithSupabase().catch((err) => {
+      console.log('Supabase sync background notice:', err?.message || err);
+    });
   }
 }
 
-// Sync from Supabase
-export async function syncWithSupabase(): Promise<{ success: boolean; message?: string }> {
-  const supabase = getSupabaseClient();
-  if (!supabase) {
-    return { success: false, message: 'Supabase no está configurado aún' };
-  }
-
-  try {
-    const [
-      groupsRes,
-      subjectsRes,
-      studentsRes,
-      activitiesRes,
-      gradesRes,
-      coevalRes,
-      notifRes,
-    ] = await Promise.allSettled([
-      supabase.from('grade_groups').select('*'),
-      supabase.from('subjects').select('*'),
-      supabase.from('students').select('*'),
-      supabase.from('activities').select('*'),
-      supabase.from('grade_records').select('*'),
-      supabase.from('coevaluations').select('*'),
-      supabase.from('notifications').select('*'),
-    ]);
-
-    let hadUpdates = false;
-
-    if (groupsRes.status === 'fulfilled' && groupsRes.value.data && groupsRes.value.data.length > 0) {
-      groupsCache = groupsRes.value.data.map((item: Record<string, unknown>) => ({
-        id: String(item.id),
-        name: String(item.name),
-        code: String(item.code),
-        description: String(item.description || ''),
-        academicYear: String(item.academic_year || item.academicYear || '2026'),
-        createdAt: String(item.created_at || item.createdAt || new Date().toISOString()),
-      }));
-      saveToStorage(STORAGE_KEYS.GROUPS, groupsCache);
-      hadUpdates = true;
-    }
-
-    if (subjectsRes.status === 'fulfilled' && subjectsRes.value.data && subjectsRes.value.data.length > 0) {
-      subjectsCache = subjectsRes.value.data.map((item: Record<string, unknown>) => ({
-        id: String(item.id),
-        groupId: String(item.group_id || item.groupId),
-        name: String(item.name),
-        code: String(item.code),
-        teacherName: String(item.teacher_name || item.teacherName || 'Docente'),
-        color: String(item.color || '#3b82f6'),
-        creditHours: Number(item.credit_hours || item.creditHours || 4),
-      }));
-      saveToStorage(STORAGE_KEYS.SUBJECTS, subjectsCache);
-      hadUpdates = true;
-    }
-
-    if (studentsRes.status === 'fulfilled' && studentsRes.value.data && studentsRes.value.data.length > 0) {
-      studentsCache = studentsRes.value.data.map((item: Record<string, unknown>) => ({
-        id: String(item.id),
-        fullName: String(item.full_name || item.fullName),
-        passwordHash: String(item.password_hash || item.passwordHash),
-        groupId: String(item.group_id || item.groupId),
-        email: item.email ? String(item.email) : undefined,
-        registeredAt: String(item.registered_at || item.registeredAt || new Date().toISOString()),
-      }));
-      saveToStorage(STORAGE_KEYS.STUDENTS, studentsCache);
-      hadUpdates = true;
-    }
-
-    if (activitiesRes.status === 'fulfilled' && activitiesRes.value.data && activitiesRes.value.data.length > 0) {
-      activitiesCache = activitiesRes.value.data.map((item: Record<string, unknown>) => ({
-        id: String(item.id),
-        subjectId: String(item.subject_id || item.subjectId),
-        groupId: String(item.group_id || item.groupId),
-        title: String(item.title),
-        description: String(item.description || ''),
-        dueDate: String(item.due_date || item.dueDate),
-        weightPercentage: Number(item.weight_percentage || item.weightPercentage || 20),
-        maxScore: Number(item.max_score || item.maxScore || 5.0),
-        allowCoevaluation: Boolean(item.allow_coevaluation ?? item.allowCoevaluation),
-        coevaluationActive: Boolean(item.coevaluation_active ?? item.coevaluationActive),
-        coevaluationDueDate: item.coevaluation_due_date ? String(item.coevaluation_due_date) : undefined,
-        createdAt: String(item.created_at || item.createdAt || new Date().toISOString()),
-      }));
-      saveToStorage(STORAGE_KEYS.ACTIVITIES, activitiesCache);
-      hadUpdates = true;
-    }
-
-    if (gradesRes.status === 'fulfilled' && gradesRes.value.data && gradesRes.value.data.length > 0) {
-      gradesCache = gradesRes.value.data.map((item: Record<string, unknown>) => ({
-        id: String(item.id),
-        activityId: String(item.activity_id || item.activityId),
-        studentId: String(item.student_id || item.studentId),
-        score: Number(item.score),
-        feedback: item.feedback ? String(item.feedback) : undefined,
-        gradedAt: String(item.graded_at || item.gradedAt || new Date().toISOString()),
-        gradedBy: String(item.graded_by || item.gradedBy || 'Docente'),
-      }));
-      saveToStorage(STORAGE_KEYS.GRADES, gradesCache);
-      hadUpdates = true;
-    }
-
-    if (coevalRes.status === 'fulfilled' && coevalRes.value.data && coevalRes.value.data.length > 0) {
-      coevaluationsCache = coevalRes.value.data.map((item: Record<string, unknown>) => ({
-        id: String(item.id),
-        activityId: String(item.activity_id || item.activityId),
-        evaluatorStudentId: String(item.evaluator_student_id || item.evaluatorStudentId),
-        evaluatedStudentId: String(item.evaluated_student_id || item.evaluatedStudentId),
-        scores: {
-          participation: Number(item.participation_score || 5),
-          responsibility: Number(item.responsibility_score || 5),
-          teamwork: Number(item.teamwork_score || 5),
-          quality: Number(item.quality_score || 5),
-        },
-        averageScore: Number(item.average_score || item.averageScore || 5),
-        comments: String(item.comments || ''),
-        submittedAt: String(item.submitted_at || item.submittedAt || new Date().toISOString()),
-      }));
-      saveToStorage(STORAGE_KEYS.COEVALUATIONS, coevaluationsCache);
-      hadUpdates = true;
-    }
-
-    if (notifRes.status === 'fulfilled' && notifRes.value.data && notifRes.value.data.length > 0) {
-      notificationsCache = notifRes.value.data.map((item: Record<string, unknown>) => ({
-        id: String(item.id),
-        studentId: item.student_id ? String(item.student_id) : undefined,
-        groupId: item.group_id ? String(item.group_id) : undefined,
-        title: String(item.title),
-        message: String(item.message),
-        type: (item.type as NotificationItem['type']) || 'system',
-        linkTarget: item.link_target ? String(item.link_target) : undefined,
-        activityId: item.activity_id ? String(item.activity_id) : undefined,
-        isRead: Boolean(item.is_read ?? item.isRead),
-        createdAt: String(item.created_at || item.createdAt || new Date().toISOString()),
-      }));
-      saveToStorage(STORAGE_KEYS.NOTIFICATIONS, notificationsCache);
-      hadUpdates = true;
-    }
-
-    if (hadUpdates) {
-      notifyListeners();
-    }
-
-    return { success: true };
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return { success: false, message: msg };
-  }
-}
-
-// Push local seed or item to Supabase helper
+// Push local change to Supabase if configured
 async function pushRecordToSupabase(table: string, payload: Record<string, unknown>) {
   const supabase = getSupabaseClient();
   if (!supabase) return;
@@ -444,7 +147,275 @@ async function pushRecordToSupabase(table: string, payload: Record<string, unkno
   }
 }
 
-// Store getters
+async function deleteRecordFromSupabase(table: string, id: string) {
+  const supabase = getSupabaseClient();
+  if (!supabase) return;
+  try {
+    await supabase.from(table).delete().eq('id', id);
+  } catch (e) {
+    console.warn(`Error deleting from Supabase table ${table}:`, e);
+  }
+}
+
+// Bi-directional sync with Supabase
+export async function syncWithSupabase(): Promise<{ success: boolean; message?: string }> {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    return { success: false, message: 'Supabase no está configurado aún' };
+  }
+
+  try {
+    // 1. Groups
+    const { data: remoteGroups } = await supabase.from('grade_groups').select('*');
+    if (remoteGroups && remoteGroups.length > 0) {
+      const mergedGroups: GradeGroup[] = remoteGroups.map((g: any) => ({
+        id: g.id,
+        name: g.name,
+        code: g.code,
+        description: g.description || '',
+        academicYear: g.academic_year || '2026',
+        createdAt: g.created_at,
+      }));
+      groupsCache = mergedGroups;
+      saveToStorage(STORAGE_KEYS.GROUPS, groupsCache);
+    } else if (groupsCache.length > 0) {
+      for (const g of groupsCache) {
+        await supabase.from('grade_groups').upsert({
+          id: g.id,
+          name: g.name,
+          code: g.code,
+          description: g.description,
+          academic_year: g.academicYear,
+          created_at: g.createdAt,
+        });
+      }
+    }
+
+    // 2. Subjects
+    const { data: remoteSubjects } = await supabase.from('subjects').select('*');
+    if (remoteSubjects && remoteSubjects.length > 0) {
+      const mergedSubjects: Subject[] = remoteSubjects.map((s: any) => ({
+        id: s.id,
+        groupId: s.group_id,
+        name: s.name,
+        code: s.code,
+        teacherName: s.teacher_name,
+        color: s.color || '#4f46e5',
+        creditHours: s.credit_hours || 4,
+      }));
+      subjectsCache = mergedSubjects;
+      saveToStorage(STORAGE_KEYS.SUBJECTS, subjectsCache);
+    } else if (subjectsCache.length > 0) {
+      for (const s of subjectsCache) {
+        await supabase.from('subjects').upsert({
+          id: s.id,
+          group_id: s.groupId,
+          name: s.name,
+          code: s.code,
+          teacher_name: s.teacherName,
+          color: s.color,
+          credit_hours: s.creditHours,
+        });
+      }
+    }
+
+    // 3. Activities
+    const { data: remoteActivities } = await supabase.from('activities').select('*');
+    if (remoteActivities && remoteActivities.length > 0) {
+      const mergedActivities: Activity[] = remoteActivities.map((a: any) => ({
+        id: a.id,
+        subjectId: a.subject_id,
+        groupId: a.group_id,
+        title: a.title,
+        description: a.description || '',
+        dueDate: a.due_date,
+        weightPercentage: Number(a.weight_percentage) || 20,
+        maxScore: Number(a.max_score) || 5.0,
+        allowCoevaluation: Boolean(a.allow_coevaluation),
+        coevaluationActive: Boolean(a.coevaluation_active),
+        coevaluationDueDate: a.coevaluation_due_date,
+        createdAt: a.created_at,
+      }));
+      activitiesCache = mergedActivities;
+      saveToStorage(STORAGE_KEYS.ACTIVITIES, activitiesCache);
+    } else if (activitiesCache.length > 0) {
+      for (const a of activitiesCache) {
+        await supabase.from('activities').upsert({
+          id: a.id,
+          subject_id: a.subjectId,
+          group_id: a.groupId,
+          title: a.title,
+          description: a.description,
+          due_date: a.dueDate,
+          weight_percentage: a.weightPercentage,
+          max_score: a.maxScore,
+          allow_coevaluation: a.allowCoevaluation ?? false,
+          coevaluation_active: a.coevaluationActive ?? false,
+          coevaluation_due_date: a.coevaluationDueDate,
+          created_at: a.createdAt,
+        });
+      }
+    }
+
+    // 4. Students
+    const { data: remoteStudents } = await supabase.from('students').select('*');
+    if (remoteStudents && remoteStudents.length > 0) {
+      const mergedStudents: Student[] = remoteStudents.map((st: any) => ({
+        id: st.id,
+        fullName: st.full_name,
+        passwordHash: st.password_hash,
+        groupId: st.group_id,
+        email: st.email || undefined,
+        registeredAt: st.registered_at,
+      }));
+      studentsCache = mergedStudents;
+      saveToStorage(STORAGE_KEYS.STUDENTS, studentsCache);
+    } else if (studentsCache.length > 0) {
+      for (const st of studentsCache) {
+        await supabase.from('students').upsert({
+          id: st.id,
+          full_name: st.fullName,
+          password_hash: st.passwordHash,
+          group_id: st.groupId,
+          email: st.email || null,
+          registered_at: st.registeredAt,
+        });
+      }
+    }
+
+    // 5. Grades
+    const { data: remoteGrades } = await supabase.from('grade_records').select('*');
+    if (remoteGrades && remoteGrades.length > 0) {
+      const mergedGrades: GradeRecord[] = remoteGrades.map((g: any) => ({
+        id: g.id,
+        activityId: g.activity_id,
+        studentId: g.student_id,
+        score: Number(g.score),
+        feedback: g.feedback || undefined,
+        gradedAt: g.graded_at,
+        gradedBy: g.graded_by,
+      }));
+      gradesCache = mergedGrades;
+      saveToStorage(STORAGE_KEYS.GRADES, gradesCache);
+    }
+
+    // 6. Coevaluations
+    const { data: remoteCoevals } = await supabase.from('coevaluations').select('*');
+    if (remoteCoevals && remoteCoevals.length > 0) {
+      const mergedCoevals: CoevaluationRecord[] = remoteCoevals.map((c: any) => ({
+        id: c.id,
+        activityId: c.activity_id,
+        evaluatorStudentId: c.evaluator_student_id,
+        evaluatedStudentId: c.evaluated_student_id,
+        scores: {
+          participation: Number(c.participation_score) || 5,
+          responsibility: Number(c.responsibility_score) || 5,
+          teamwork: Number(c.teamwork_score) || 5,
+          quality: Number(c.quality_score) || 5,
+        },
+        averageScore: Number(c.average_score) || 5,
+        comments: c.comments || '',
+        submittedAt: c.submitted_at,
+      }));
+      coevaluationsCache = mergedCoevals;
+      saveToStorage(STORAGE_KEYS.COEVALUATIONS, coevaluationsCache);
+    }
+
+    // 7. Notifications
+    const { data: remoteNotifs } = await supabase.from('notifications').select('*');
+    if (remoteNotifs && remoteNotifs.length > 0) {
+      const mergedNotifs: NotificationItem[] = remoteNotifs.map((n: any) => ({
+        id: n.id,
+        studentId: n.student_id || undefined,
+        groupId: n.group_id || undefined,
+        title: n.title,
+        message: n.message,
+        type: n.type,
+        activityId: n.activity_id || undefined,
+        isRead: Boolean(n.is_read),
+        createdAt: n.created_at,
+      }));
+      notificationsCache = mergedNotifs;
+      saveToStorage(STORAGE_KEYS.NOTIFICATIONS, notificationsCache);
+    }
+
+    notifyListeners();
+    return { success: true, message: 'Sincronización completada' };
+  } catch (err: any) {
+    console.error('Error during Supabase synchronization:', err);
+    return { success: false, message: err?.message || 'Error de sincronización con Supabase' };
+  }
+}
+
+// Real-time listener setup for Supabase
+let activeRealtimeChannel: RealtimeChannel | null = null;
+
+export function disconnectSupabaseRealtime() {
+  const supabase = getSupabaseClient();
+  if (activeRealtimeChannel && supabase) {
+    try {
+      supabase.removeChannel(activeRealtimeChannel);
+    } catch {
+      // ignore
+    }
+    activeRealtimeChannel = null;
+  }
+}
+
+export function setupSupabaseRealtime() {
+  const supabase = getSupabaseClient();
+  if (!supabase) return () => {};
+
+  // Clean up any previously active channel
+  if (activeRealtimeChannel) {
+    try {
+      supabase.removeChannel(activeRealtimeChannel);
+    } catch {
+      // ignore
+    }
+    activeRealtimeChannel = null;
+  }
+
+  // Remove any stale channels matching our topic to avoid "callbacks after subscribe" error
+  try {
+    const existingChannels = supabase.getChannels();
+    for (const ch of existingChannels) {
+      if (ch.topic && ch.topic.includes('edugrade-realtime')) {
+        supabase.removeChannel(ch);
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  // Use a unique channel name so each subscription creates a clean un-subscribed channel instance
+  const channelName = `edugrade-realtime-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+  const channel = supabase.channel(channelName);
+  activeRealtimeChannel = channel;
+
+  channel
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public' },
+      () => {
+        syncWithSupabase();
+      }
+    )
+    .subscribe();
+
+  return () => {
+    if (activeRealtimeChannel === channel) {
+      activeRealtimeChannel = null;
+    }
+    try {
+      supabase.removeChannel(channel);
+    } catch {
+      // ignore
+    }
+  };
+}
+
+// Getters
 export function getGroups(): GradeGroup[] {
   return [...groupsCache];
 }
@@ -490,19 +461,15 @@ export function getCoevaluations(activityId?: string, evaluatedStudentId?: strin
 
 export function getNotifications(studentId?: string, groupId?: string): NotificationItem[] {
   return notificationsCache.filter((n) => {
-    // If targeted to a specific student
     if (n.studentId && studentId && n.studentId === studentId) return true;
-    // If targeted to a group
     if (n.groupId && groupId && n.groupId === groupId) return true;
-    // If global (no studentId and no groupId)
     if (!n.studentId && !n.groupId) return true;
-    // If no filter requested, return all
     if (!studentId && !groupId) return true;
     return false;
   });
 }
 
-// Store mutations
+// Store mutations with immediate local persistence
 export async function addGroup(group: Omit<GradeGroup, 'id' | 'createdAt'>): Promise<GradeGroup> {
   const newGroup: GradeGroup = {
     ...group,
@@ -525,6 +492,42 @@ export async function addGroup(group: Omit<GradeGroup, 'id' | 'createdAt'>): Pro
   return newGroup;
 }
 
+export async function deleteGroup(groupId: string): Promise<void> {
+  groupsCache = groupsCache.filter((g) => g.id !== groupId);
+  
+  // Cascade delete in memory & local storage
+  const deletedSubjects = subjectsCache.filter((s) => s.groupId === groupId);
+  subjectsCache = subjectsCache.filter((s) => s.groupId !== groupId);
+  
+  const deletedActivities = activitiesCache.filter((a) => a.groupId === groupId);
+  activitiesCache = activitiesCache.filter((a) => a.groupId !== groupId);
+  
+  const deletedStudents = studentsCache.filter((st) => st.groupId === groupId);
+  studentsCache = studentsCache.filter((st) => st.groupId !== groupId);
+
+  const actIds = new Set(deletedActivities.map((a) => a.id));
+  const studentIds = new Set(deletedStudents.map((s) => s.id));
+
+  gradesCache = gradesCache.filter((g) => !actIds.has(g.activityId) && !studentIds.has(g.studentId));
+  coevaluationsCache = coevaluationsCache.filter(
+    (c) => !actIds.has(c.activityId) && !studentIds.has(c.evaluatorStudentId) && !studentIds.has(c.evaluatedStudentId)
+  );
+  notificationsCache = notificationsCache.filter(
+    (n) => n.groupId !== groupId && (!n.studentId || !studentIds.has(n.studentId))
+  );
+
+  saveToStorage(STORAGE_KEYS.GROUPS, groupsCache);
+  saveToStorage(STORAGE_KEYS.SUBJECTS, subjectsCache);
+  saveToStorage(STORAGE_KEYS.ACTIVITIES, activitiesCache);
+  saveToStorage(STORAGE_KEYS.STUDENTS, studentsCache);
+  saveToStorage(STORAGE_KEYS.GRADES, gradesCache);
+  saveToStorage(STORAGE_KEYS.COEVALUATIONS, coevaluationsCache);
+  saveToStorage(STORAGE_KEYS.NOTIFICATIONS, notificationsCache);
+
+  notifyListeners();
+  deleteRecordFromSupabase('grade_groups', groupId);
+}
+
 export async function addSubject(subject: Omit<Subject, 'id'>): Promise<Subject> {
   const newSubject: Subject = {
     ...subject,
@@ -545,6 +548,26 @@ export async function addSubject(subject: Omit<Subject, 'id'>): Promise<Subject>
   });
 
   return newSubject;
+}
+
+export async function deleteSubject(subjectId: string): Promise<void> {
+  subjectsCache = subjectsCache.filter((s) => s.id !== subjectId);
+  const deletedActivities = activitiesCache.filter((a) => a.subjectId === subjectId);
+  activitiesCache = activitiesCache.filter((a) => a.subjectId !== subjectId);
+  const actIds = new Set(deletedActivities.map((a) => a.id));
+
+  gradesCache = gradesCache.filter((g) => !actIds.has(g.activityId));
+  coevaluationsCache = coevaluationsCache.filter((c) => !actIds.has(c.activityId));
+  notificationsCache = notificationsCache.filter((n) => !n.activityId || !actIds.has(n.activityId));
+
+  saveToStorage(STORAGE_KEYS.SUBJECTS, subjectsCache);
+  saveToStorage(STORAGE_KEYS.ACTIVITIES, activitiesCache);
+  saveToStorage(STORAGE_KEYS.GRADES, gradesCache);
+  saveToStorage(STORAGE_KEYS.COEVALUATIONS, coevaluationsCache);
+  saveToStorage(STORAGE_KEYS.NOTIFICATIONS, notificationsCache);
+
+  notifyListeners();
+  deleteRecordFromSupabase('subjects', subjectId);
 }
 
 export async function addActivity(activity: Omit<Activity, 'id' | 'createdAt'>): Promise<Activity> {
@@ -601,6 +624,21 @@ export async function addActivity(activity: Omit<Activity, 'id' | 'createdAt'>):
   return newActivity;
 }
 
+export async function deleteActivity(activityId: string): Promise<void> {
+  activitiesCache = activitiesCache.filter((a) => a.id !== activityId);
+  gradesCache = gradesCache.filter((g) => g.activityId !== activityId);
+  coevaluationsCache = coevaluationsCache.filter((c) => c.activityId !== activityId);
+  notificationsCache = notificationsCache.filter((n) => n.activityId !== activityId);
+
+  saveToStorage(STORAGE_KEYS.ACTIVITIES, activitiesCache);
+  saveToStorage(STORAGE_KEYS.GRADES, gradesCache);
+  saveToStorage(STORAGE_KEYS.COEVALUATIONS, coevaluationsCache);
+  saveToStorage(STORAGE_KEYS.NOTIFICATIONS, notificationsCache);
+
+  notifyListeners();
+  deleteRecordFromSupabase('activities', activityId);
+}
+
 export async function toggleCoevaluationStatus(activityId: string, active: boolean, dueDate?: string) {
   activitiesCache = activitiesCache.map((act) => {
     if (act.id === activityId) {
@@ -617,7 +655,6 @@ export async function toggleCoevaluationStatus(activityId: string, active: boole
 
   const targetAct = activitiesCache.find((a) => a.id === activityId);
   if (targetAct && active) {
-    // Generate notification for students
     const notif: NotificationItem = {
       id: 'notif-coeval-' + Date.now(),
       groupId: targetAct.groupId,
@@ -646,7 +683,6 @@ export async function toggleCoevaluationStatus(activityId: string, active: boole
 }
 
 export async function registerStudent(student: Omit<Student, 'registeredAt'>): Promise<{ success: boolean; message?: string }> {
-  // Check if student ID already exists
   const existing = studentsCache.find((s) => s.id.trim() === student.id.trim());
   if (existing) {
     return { success: false, message: 'La identificación ya está registrada en el sistema. Inicia sesión.' };
@@ -672,6 +708,23 @@ export async function registerStudent(student: Omit<Student, 'registeredAt'>): P
   });
 
   return { success: true };
+}
+
+export async function deleteStudent(studentId: string): Promise<void> {
+  studentsCache = studentsCache.filter((s) => s.id !== studentId);
+  gradesCache = gradesCache.filter((g) => g.studentId !== studentId);
+  coevaluationsCache = coevaluationsCache.filter(
+    (c) => c.evaluatorStudentId !== studentId && c.evaluatedStudentId !== studentId
+  );
+  notificationsCache = notificationsCache.filter((n) => n.studentId !== studentId);
+
+  saveToStorage(STORAGE_KEYS.STUDENTS, studentsCache);
+  saveToStorage(STORAGE_KEYS.GRADES, gradesCache);
+  saveToStorage(STORAGE_KEYS.COEVALUATIONS, coevaluationsCache);
+  saveToStorage(STORAGE_KEYS.NOTIFICATIONS, notificationsCache);
+
+  notifyListeners();
+  deleteRecordFromSupabase('students', studentId);
 }
 
 export async function saveGrade(record: Omit<GradeRecord, 'id' | 'gradedAt'>): Promise<GradeRecord> {
@@ -807,6 +860,26 @@ export function markAllNotificationsAsRead(studentId?: string, groupId?: string)
     return n;
   });
   saveToStorage(STORAGE_KEYS.NOTIFICATIONS, notificationsCache);
+  notifyListeners();
+}
+
+export async function clearAllData(): Promise<void> {
+  groupsCache = [];
+  subjectsCache = [];
+  activitiesCache = [];
+  studentsCache = [];
+  gradesCache = [];
+  coevaluationsCache = [];
+  notificationsCache = [];
+
+  saveToStorage(STORAGE_KEYS.GROUPS, []);
+  saveToStorage(STORAGE_KEYS.SUBJECTS, []);
+  saveToStorage(STORAGE_KEYS.ACTIVITIES, []);
+  saveToStorage(STORAGE_KEYS.STUDENTS, []);
+  saveToStorage(STORAGE_KEYS.GRADES, []);
+  saveToStorage(STORAGE_KEYS.COEVALUATIONS, []);
+  saveToStorage(STORAGE_KEYS.NOTIFICATIONS, []);
+
   notifyListeners();
 }
 

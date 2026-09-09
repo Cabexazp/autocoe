@@ -45,6 +45,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [regEmail, setRegEmail] = useState('');
   const [showRegPassword, setShowRegPassword] = useState(false);
 
+  // Keep regGroupId in sync if groups change
+  React.useEffect(() => {
+    if (groups.length > 0 && (!regGroupId || !groups.some(g => g.id === regGroupId))) {
+      setRegGroupId(groups[0].id);
+    }
+  }, [groups, regGroupId]);
+
   // Feedback states
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -242,6 +249,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {/* TAB 1: INGRESO ESTUDIANTE */}
           {activeTab === 'student_login' && (
             <form onSubmit={handleStudentLogin} className="space-y-4">
+              {students.length === 0 && (
+                <div className="p-3.5 bg-indigo-50/80 border border-indigo-200 rounded-xl text-xs text-indigo-900 flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold">Aún no hay estudiantes registrados en el sistema.</p>
+                    <p className="text-[11px] text-indigo-700 mt-0.5">
+                      Para comenzar, el docente/administrador debe ingresar con la clave y crear los grados. Luego, los estudiantes pueden crear su cuenta en la pestaña "Registro Estudiante".
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                   Identificación / Documento
@@ -384,9 +403,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </select>
                 </div>
                 {groups.length === 0 && (
-                  <p className="text-[11px] text-amber-600 mt-1">
-                    Nota: El administrador debe ingresar primero con su clave y crear los grados.
-                  </p>
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 mt-2 flex items-start gap-2.5">
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold">Aún no hay grados creados por el administrador.</p>
+                      <p className="text-[11px] text-amber-700 mt-0.5">
+                        El docente o administrador debe ingresar primero (pestaña Docente/Admin con su clave) para registrar los grados escolares.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab('admin_login');
+                          resetForm();
+                        }}
+                        className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-indigo-700 hover:text-indigo-900 underline"
+                      >
+                        Ir al Acceso Docente / Admin &rarr;
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
 

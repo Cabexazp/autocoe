@@ -76,10 +76,13 @@ export default function App() {
     });
 
     // Check supabase credentials and start realtime
-    setupSupabaseRealtime();
+    const cleanupRealtime = setupSupabaseRealtime();
 
     return () => {
       unsubscribe();
+      if (cleanupRealtime) {
+        cleanupRealtime();
+      }
     };
   }, []);
 
@@ -191,7 +194,11 @@ export default function App() {
         isConnected={isSupabaseConnected}
         onConnectionChange={() => {
           const creds = getStoredSupabaseCredentials();
-          setIsSupabaseConnected(Boolean(creds.url && creds.anonKey && getSupabaseClient()));
+          const connected = Boolean(creds.url && creds.anonKey && getSupabaseClient());
+          setIsSupabaseConnected(connected);
+          if (connected) {
+            setupSupabaseRealtime();
+          }
           handleManualSync();
         }}
       />

@@ -26,6 +26,13 @@ export function saveSupabaseCredentials(url: string, anonKey: string) {
     localStorage.setItem(STORAGE_KEY_URL, url.trim());
     localStorage.setItem(STORAGE_KEY_KEY, anonKey.trim());
   }
+  if (cachedClient) {
+    try {
+      cachedClient.removeAllChannels();
+    } catch {
+      // ignore
+    }
+  }
   cachedClient = null; // reset so client is re-created
 }
 
@@ -33,6 +40,13 @@ export function clearSupabaseCredentials() {
   if (typeof window !== 'undefined') {
     localStorage.removeItem(STORAGE_KEY_URL);
     localStorage.removeItem(STORAGE_KEY_KEY);
+  }
+  if (cachedClient) {
+    try {
+      cachedClient.removeAllChannels();
+    } catch {
+      // ignore
+    }
   }
   cachedClient = null;
 }

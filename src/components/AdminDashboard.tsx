@@ -16,7 +16,9 @@ import {
   ToggleLeft,
   ToggleRight,
   Search,
-  Percent
+  Percent,
+  Trash2,
+  RotateCcw
 } from 'lucide-react';
 import { 
   GradeGroup, 
@@ -31,7 +33,12 @@ import {
   addSubject, 
   addActivity, 
   saveGrade, 
-  toggleCoevaluationStatus 
+  toggleCoevaluationStatus,
+  deleteGroup,
+  deleteSubject,
+  deleteActivity,
+  deleteStudent,
+  clearAllData
 } from '../services/dataStore';
 
 interface AdminDashboardProps {
@@ -51,12 +58,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   grades,
   coevaluations,
 }) => {
-  const [activeTab, setActiveTab] = useState<'groups' | 'subjects' | 'activities' | 'grades' | 'coevaluation' | 'students'>('grades');
+  const [activeTab, setActiveTab] = useState<'groups' | 'subjects' | 'activities' | 'grades' | 'coevaluation' | 'students'>(
+    groups.length === 0 ? 'groups' : 'grades'
+  );
 
   // Filter selections
   const [selectedGroupId, setSelectedGroupId] = useState<string>(groups[0]?.id || '');
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
   const [selectedActivityId, setSelectedActivityId] = useState<string>('');
+
+  // Keep selectedGroupId synced when groups change
+  React.useEffect(() => {
+    if (!selectedGroupId && groups.length > 0) {
+      setSelectedGroupId(groups[0].id);
+    } else if (selectedGroupId && !groups.some(g => g.id === selectedGroupId)) {
+      setSelectedGroupId(groups[0]?.id || '');
+    }
+  }, [groups, selectedGroupId]);
 
   // Forms state: New Group
   const [newGroupName, setNewGroupName] = useState('');
@@ -205,11 +223,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       <div className="bg-white rounded-2xl p-6 shadow-xs border border-slate-200">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex flex-wrap items-center gap-2 mb-1">
               <h1 className="text-2xl font-black text-slate-900 tracking-tight">Panel del Docente y Administrador</h1>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800">
                 Gestión Central
               </span>
+              <button
+                id="btn-admin-reset-all"
+                type="button"
+                onClick={() => {
+                  if (window.confirm('¿Deseas reiniciar la aplicación a blanco? Esto eliminará todos los grados, materias, actividades y estudiantes creados localmente.')) {
+                    clearAllData();
+                  }
+                }}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 text-[11px] font-medium text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors ml-auto sm:ml-2"
+                title="Reiniciar a blanco"
+              >
+                <RotateCcw className="w-3 h-3" />
+                Iniciar en Blanco
+              </button>
             </div>
             <p className="text-sm text-slate-500">
               Crea grados, materias y actividades. Califica en tiempo real y gestiona la coevaluación entre pares.
@@ -234,11 +266,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               }}
               className="px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-indigo-600 outline-hidden"
             >
-              {groups.map((grp) => (
-                <option key={grp.id} value={grp.id}>
-                  {grp.name} ({grp.code})
-                </option>
-              ))}
+              {groups.length === 0 ? (
+                <option value="">(No hay grados creados aún)</option>
+              ) : (
+                groups.map((grp) => (
+                  <option key={grp.id} value={grp.id}>
+                    {grp.name} ({grp.code})
+                  </option>
+                ))
+              )}
             </select>
           </div>
         </div>
@@ -733,317 +769,403 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       {/* TAB CONTENT: ACTIVIDADES Y TAREAS */}
       {activeTab === 'activities' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Form Create Activity */}
-          <div className="lg:col-span-1 bg-white rounded-2xl p-6 shadow-xs border border-slate-200">
-            <h3 className="text-base font-bold text-slate-900 mb-1 flex items-center gap-2">
-              <Plus className="w-4 h-4 text-indigo-600" />
-              Nueva Actividad / Tarea
-            </h3>
-            <p className="text-xs text-slate-500 mb-4">
-              Asigna tareas con porcentaje ponderado y fecha de entrega.
-            </p>
-
-            <form onSubmit={handleCreateActivity} className="space-y-3.5 text-xs">
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Materia Asignada *</label>
-                <select
-                  id="select-activity-subject"
-                  required
-                  value={activeSubject?.id || ''}
-                  onChange={(e) => setSelectedSubjectId(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs"
-                >
-                  {currentGroupSubjects.map((sub) => (
-                    <option key={sub.id} value={sub.id}>
-                      {sub.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Título de la Actividad *</label>
-                <input
-                  id="input-act-title"
-                  type="text"
-                  required
-                  placeholder="Ej. Taller 2: Termodinámica"
-                  value={newActTitle}
-                  onChange={(e) => setNewActTitle(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Descripción e Instrucciones</label>
-                <textarea
-                  id="input-act-desc"
-                  rows={2}
-                  placeholder="Instrucciones para los estudiantes..."
-                  value={newActDesc}
-                  onChange={(e) => setNewActDesc(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Fecha Entrega *</label>
-                  <input
-                    id="input-act-due-date"
-                    type="date"
-                    required
-                    value={newActDueDate}
-                    onChange={(e) => setNewActDueDate(e.target.value)}
-                    className="w-full px-2.5 py-2 bg-slate-50 border border-slate-300 rounded-xl"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Peso (%) *</label>
-                  <input
-                    id="input-act-weight"
-                    type="number"
-                    min="1"
-                    max="100"
-                    required
-                    value={newActWeight}
-                    onChange={(e) => setNewActWeight(Number(e.target.value))}
-                    className="w-full px-2.5 py-2 bg-slate-50 border border-slate-300 rounded-xl"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Nota Máxima *</label>
-                <input
-                  id="input-act-max-score"
-                  type="number"
-                  step="0.1"
-                  min="1"
-                  max="100"
-                  required
-                  value={newActMaxScore}
-                  onChange={(e) => setNewActMaxScore(Number(e.target.value))}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"
-                />
-              </div>
-
-              <div className="p-3 bg-indigo-50/60 rounded-xl border border-indigo-100 flex items-center justify-between">
-                <div>
-                  <span className="font-semibold text-slate-800 block">Habilitar Coevaluación</span>
-                  <span className="text-[10px] text-slate-500">Permitir calificar compañeros de uno en uno</span>
-                </div>
-                <input
-                  id="checkbox-act-allow-coeval"
-                  type="checkbox"
-                  checked={newActAllowCoeval}
-                  onChange={(e) => setNewActAllowCoeval(e.target.checked)}
-                  className="w-4 h-4 text-indigo-600 rounded-md"
-                />
-              </div>
-
+        <div>
+          {currentGroupSubjects.length === 0 ? (
+            <div className="bg-white rounded-2xl p-8 text-center border border-slate-200 shadow-xs max-w-lg mx-auto">
+              <BookOpen className="w-12 h-12 text-indigo-400 mx-auto mb-3" />
+              <h3 className="text-base font-bold text-slate-900">Primero debes crear una Materia</h3>
+              <p className="text-xs text-slate-500 mt-1 mb-4">
+                Para asignar actividades, tareas y ponderaciones, primero debes registrar al menos una materia en este grado.
+              </p>
               <button
-                id="btn-create-activity"
-                type="submit"
-                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-xs transition-colors"
+                type="button"
+                onClick={() => setActiveTab('subjects')}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs"
               >
-                Crear y Publicar Actividad
+                Ir a Crear Materias &rarr;
               </button>
-            </form>
-          </div>
-
-          {/* List of Activities */}
-          <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-xs border border-slate-200">
-            <h3 className="text-base font-bold text-slate-900 mb-4">
-              Actividades del Grado ({activities.filter((a) => a.groupId === selectedGroupId).length})
-            </h3>
-
-            <div className="space-y-3">
-              {activities
-                .filter((a) => a.groupId === selectedGroupId)
-                .map((act) => {
-                  const sub = subjects.find((s) => s.id === act.subjectId);
-                  return (
-                    <div
-                      key={act.id}
-                      className="p-4 rounded-xl border border-slate-200 hover:border-indigo-200 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                    >
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="text-[10px] font-bold px-2 py-0.5 rounded-md text-white"
-                            style={{ backgroundColor: sub?.color || '#4f46e5' }}
-                          >
-                            {sub?.name}
-                          </span>
-                          <span className="text-xs text-slate-500 font-medium">
-                            Entrega: {new Date(act.dueDate).toLocaleDateString('es-ES')}
-                          </span>
-                          {act.allowCoevaluation && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-100 text-purple-700">
-                              Coevaluación {act.coevaluationActive ? 'Activa' : 'Pausada'}
-                            </span>
-                          )}
-                        </div>
-                        <h4 className="text-sm font-bold text-slate-900 mt-1">{act.title}</h4>
-                        <p className="text-xs text-slate-500 mt-0.5">{act.description}</p>
-                      </div>
-
-                      <div className="text-right shrink-0">
-                        <span className="text-xs font-bold text-slate-900 block">
-                          Peso: {act.weightPercentage}%
-                        </span>
-                        <span className="text-[11px] text-slate-500">
-                          Máx: {act.maxScore.toFixed(1)} pts
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
             </div>
-          </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Form Create Activity */}
+              <div className="lg:col-span-1 bg-white rounded-2xl p-6 shadow-xs border border-slate-200">
+                <h3 className="text-base font-bold text-slate-900 mb-1 flex items-center gap-2">
+                  <Plus className="w-4 h-4 text-indigo-600" />
+                  Nueva Actividad / Tarea
+                </h3>
+                <p className="text-xs text-slate-500 mb-4">
+                  Asigna tareas con porcentaje ponderado y fecha de entrega.
+                </p>
+
+                <form onSubmit={handleCreateActivity} className="space-y-3.5 text-xs">
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Materia Asignada *</label>
+                    <select
+                      id="select-activity-subject"
+                      required
+                      value={activeSubject?.id || ''}
+                      onChange={(e) => setSelectedSubjectId(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs"
+                    >
+                      {currentGroupSubjects.map((sub) => (
+                        <option key={sub.id} value={sub.id}>
+                          {sub.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Título de la Actividad *</label>
+                    <input
+                      id="input-act-title"
+                      type="text"
+                      required
+                      placeholder="Ej. Taller 2: Termodinámica"
+                      value={newActTitle}
+                      onChange={(e) => setNewActTitle(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Descripción e Instrucciones</label>
+                    <textarea
+                      id="input-act-desc"
+                      rows={2}
+                      placeholder="Instrucciones para los estudiantes..."
+                      value={newActDesc}
+                      onChange={(e) => setNewActDesc(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Fecha Entrega *</label>
+                      <input
+                        id="input-act-due-date"
+                        type="date"
+                        required
+                        value={newActDueDate}
+                        onChange={(e) => setNewActDueDate(e.target.value)}
+                        className="w-full px-2.5 py-2 bg-slate-50 border border-slate-300 rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Peso (%) *</label>
+                      <input
+                        id="input-act-weight"
+                        type="number"
+                        min="1"
+                        max="100"
+                        required
+                        value={newActWeight}
+                        onChange={(e) => setNewActWeight(Number(e.target.value))}
+                        className="w-full px-2.5 py-2 bg-slate-50 border border-slate-300 rounded-xl"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Nota Máxima *</label>
+                    <input
+                      id="input-act-max-score"
+                      type="number"
+                      step="0.1"
+                      min="1"
+                      max="100"
+                      required
+                      value={newActMaxScore}
+                      onChange={(e) => setNewActMaxScore(Number(e.target.value))}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"
+                    />
+                  </div>
+
+                  <div className="p-3 bg-indigo-50/60 rounded-xl border border-indigo-100 flex items-center justify-between">
+                    <div>
+                      <span className="font-semibold text-slate-800 block">Habilitar Coevaluación</span>
+                      <span className="text-[10px] text-slate-500">Permitir calificar compañeros de uno en uno</span>
+                    </div>
+                    <input
+                      id="checkbox-act-allow-coeval"
+                      type="checkbox"
+                      checked={newActAllowCoeval}
+                      onChange={(e) => setNewActAllowCoeval(e.target.checked)}
+                      className="w-4 h-4 text-indigo-600 rounded-md"
+                    />
+                  </div>
+
+                  <button
+                    id="btn-create-activity"
+                    type="submit"
+                    className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-xs transition-colors"
+                  >
+                    Crear y Publicar Actividad
+                  </button>
+                </form>
+              </div>
+
+              {/* List of Activities */}
+              <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-xs border border-slate-200">
+                <h3 className="text-base font-bold text-slate-900 mb-4">
+                  Actividades del Grado ({activities.filter((a) => a.groupId === selectedGroupId).length})
+                </h3>
+
+                {activities.filter((a) => a.groupId === selectedGroupId).length === 0 ? (
+                  <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-300">
+                    <Calendar className="w-10 h-10 text-slate-400 mx-auto mb-2" />
+                    <p className="text-sm font-bold text-slate-700">No hay actividades creadas todavía</p>
+                    <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                      Crea la primera tarea o actividad con el formulario a la izquierda.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {activities
+                      .filter((a) => a.groupId === selectedGroupId)
+                      .map((act) => {
+                        const sub = subjects.find((s) => s.id === act.subjectId);
+                        return (
+                          <div
+                            key={act.id}
+                            className="p-4 rounded-xl border border-slate-200 hover:border-indigo-200 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                          >
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className="text-[10px] font-bold px-2 py-0.5 rounded-md text-white"
+                                  style={{ backgroundColor: sub?.color || '#4f46e5' }}
+                                >
+                                  {sub?.name}
+                                </span>
+                                <span className="text-xs text-slate-500 font-medium">
+                                  Entrega: {new Date(act.dueDate).toLocaleDateString('es-ES')}
+                                </span>
+                                {act.allowCoevaluation && (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-100 text-purple-700">
+                                    Coevaluación {act.coevaluationActive ? 'Activa' : 'Pausada'}
+                                  </span>
+                                )}
+                              </div>
+                              <h4 className="text-sm font-bold text-slate-900 mt-1">{act.title}</h4>
+                              <p className="text-xs text-slate-500 mt-0.5">{act.description || 'Sin descripción'}</p>
+                            </div>
+
+                            <div className="flex items-center gap-3 self-end sm:self-center">
+                              <div className="text-right shrink-0">
+                                <span className="text-xs font-bold text-slate-900 block">
+                                  Peso: {act.weightPercentage}%
+                                </span>
+                                <span className="text-[11px] text-slate-500">
+                                  Máx: {act.maxScore.toFixed(1)} pts
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (window.confirm(`¿Eliminar la actividad "${act.title}"?`)) {
+                                    deleteActivity(act.id);
+                                  }
+                                }}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                title="Eliminar Actividad"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {/* TAB CONTENT: MATERIAS */}
       {activeTab === 'subjects' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Create Subject Form */}
-          <div className="lg:col-span-1 bg-white rounded-2xl p-6 shadow-xs border border-slate-200">
-            <h3 className="text-base font-bold text-slate-900 mb-1 flex items-center gap-2">
-              <Plus className="w-4 h-4 text-indigo-600" />
-              Nueva Materia para este Grado
-            </h3>
-            <p className="text-xs text-slate-500 mb-4">
-              Define la asignatura, código y docente a cargo.
-            </p>
-
-            <form onSubmit={handleCreateSubject} className="space-y-3.5 text-xs">
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Nombre de la Materia *</label>
-                <input
-                  id="input-sub-name"
-                  type="text"
-                  required
-                  placeholder="Ej. Química Orgánica"
-                  value={newSubName}
-                  onChange={(e) => setNewSubName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Código</label>
-                  <input
-                    id="input-sub-code"
-                    type="text"
-                    placeholder="QUI-101"
-                    value={newSubCode}
-                    onChange={(e) => setNewSubCode(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Horas Semanales</label>
-                  <input
-                    id="input-sub-hours"
-                    type="number"
-                    min="1"
-                    max="10"
-                    value={newSubHours}
-                    onChange={(e) => setNewSubHours(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Docente Asignado</label>
-                <input
-                  id="input-sub-teacher"
-                  type="text"
-                  placeholder="Lic. Marcela Gómez"
-                  value={newSubTeacher}
-                  onChange={(e) => setNewSubTeacher(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Color Identificador</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    id="input-sub-color"
-                    type="color"
-                    value={newSubColor}
-                    onChange={(e) => setNewSubColor(e.target.value)}
-                    className="w-10 h-9 p-0.5 rounded-lg border border-slate-300 cursor-pointer"
-                  />
-                  <span className="font-mono text-slate-600 text-[11px]">{newSubColor}</span>
-                </div>
-              </div>
-
+        <div>
+          {groups.length === 0 ? (
+            <div className="bg-white rounded-2xl p-8 text-center border border-slate-200 shadow-xs max-w-lg mx-auto">
+              <School className="w-12 h-12 text-indigo-400 mx-auto mb-3" />
+              <h3 className="text-base font-bold text-slate-900">Primero debes crear un Grado</h3>
+              <p className="text-xs text-slate-500 mt-1 mb-4">
+                Para registrar materias y asignaturas, primero crea al menos un grado académico (ej. 10° Grado A).
+              </p>
               <button
-                id="btn-create-subject"
-                type="submit"
-                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-xs transition-colors"
+                type="button"
+                onClick={() => setActiveTab('groups')}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs"
               >
-                Agregar Materia al Grado
+                Ir a Crear Grados &rarr;
               </button>
-            </form>
-          </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Create Subject Form */}
+              <div className="lg:col-span-1 bg-white rounded-2xl p-6 shadow-xs border border-slate-200">
+                <h3 className="text-base font-bold text-slate-900 mb-1 flex items-center gap-2">
+                  <Plus className="w-4 h-4 text-indigo-600" />
+                  Nueva Materia para este Grado
+                </h3>
+                <p className="text-xs text-slate-500 mb-4">
+                  Asignatura para el grado <span className="font-bold text-indigo-600">{groups.find(g => g.id === selectedGroupId)?.name || 'seleccionado'}</span>.
+                </p>
 
-          {/* List of Subjects */}
-          <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-xs border border-slate-200">
-            <h3 className="text-base font-bold text-slate-900 mb-4">
-              Materias Asignadas en este Grado ({currentGroupSubjects.length})
-            </h3>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              {currentGroupSubjects.map((sub) => {
-                const subActivities = activities.filter((a) => a.subjectId === sub.id);
-                return (
-                  <div
-                    key={sub.id}
-                    className="p-4 rounded-xl border border-slate-200 bg-white hover:shadow-xs transition-all relative overflow-hidden"
-                  >
-                    <div
-                      className="absolute top-0 left-0 right-0 h-1.5"
-                      style={{ backgroundColor: sub.color }}
+                <form onSubmit={handleCreateSubject} className="space-y-3.5 text-xs">
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Nombre de la Materia *</label>
+                    <input
+                      id="input-sub-name"
+                      type="text"
+                      required
+                      placeholder="Ej. Matemáticas, Biología, Filosofía"
+                      value={newSubName}
+                      onChange={(e) => setNewSubName(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"
                     />
-                    <div className="flex items-start justify-between gap-2 mt-1">
-                      <div>
-                        <span className="text-[10px] font-mono font-bold text-slate-400">
-                          {sub.code}
-                        </span>
-                        <h4 className="text-sm font-bold text-slate-900">{sub.name}</h4>
-                        <p className="text-xs text-slate-500 mt-0.5">{sub.teacherName}</p>
-                      </div>
-                      <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
-                        {sub.creditHours} hrs/sem
-                      </span>
-                    </div>
+                  </div>
 
-                    <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                      <span>{subActivities.length} actividades creadas</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedSubjectId(sub.id);
-                          setActiveTab('grades');
-                        }}
-                        className="text-indigo-600 hover:underline font-semibold"
-                      >
-                        Calificar &rarr;
-                      </button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Código</label>
+                      <input
+                        id="input-sub-code"
+                        type="text"
+                        placeholder="MAT-101"
+                        value={newSubCode}
+                        onChange={(e) => setNewSubCode(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Horas Semanales</label>
+                      <input
+                        id="input-sub-hours"
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={newSubHours}
+                        onChange={(e) => setNewSubHours(Number(e.target.value))}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"
+                      />
                     </div>
                   </div>
-                );
-              })}
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Docente Asignado</label>
+                    <input
+                      id="input-sub-teacher"
+                      type="text"
+                      placeholder="Lic. Marcela Gómez"
+                      value={newSubTeacher}
+                      onChange={(e) => setNewSubTeacher(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Color Identificador</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        id="input-sub-color"
+                        type="color"
+                        value={newSubColor}
+                        onChange={(e) => setNewSubColor(e.target.value)}
+                        className="w-10 h-9 p-0.5 rounded-lg border border-slate-300 cursor-pointer"
+                      />
+                      <span className="font-mono text-slate-600 text-[11px]">{newSubColor}</span>
+                    </div>
+                  </div>
+
+                  <button
+                    id="btn-create-subject"
+                    type="submit"
+                    className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-xs transition-colors"
+                  >
+                    Agregar Materia al Grado
+                  </button>
+                </form>
+              </div>
+
+              {/* List of Subjects */}
+              <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-xs border border-slate-200">
+                <h3 className="text-base font-bold text-slate-900 mb-4">
+                  Materias Asignadas en este Grado ({currentGroupSubjects.length})
+                </h3>
+
+                {currentGroupSubjects.length === 0 ? (
+                  <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-300">
+                    <BookOpen className="w-10 h-10 text-slate-400 mx-auto mb-2" />
+                    <p className="text-sm font-bold text-slate-700">No hay materias en este grado todavía</p>
+                    <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                      Agrega la primera materia usando el formulario a la izquierda.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    {currentGroupSubjects.map((sub) => {
+                      const subActivities = activities.filter((a) => a.subjectId === sub.id);
+                      return (
+                        <div
+                          key={sub.id}
+                          className="p-4 rounded-xl border border-slate-200 bg-white hover:shadow-xs transition-all relative overflow-hidden"
+                        >
+                          <div
+                            className="absolute top-0 left-0 right-0 h-1.5"
+                            style={{ backgroundColor: sub.color }}
+                          />
+                          <div className="flex items-start justify-between gap-2 mt-1">
+                            <div>
+                              <span className="text-[10px] font-mono font-bold text-slate-400">
+                                {sub.code}
+                              </span>
+                              <h4 className="text-sm font-bold text-slate-900">{sub.name}</h4>
+                              <p className="text-xs text-slate-500 mt-0.5">{sub.teacherName || 'Docente sin asignar'}</p>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
+                                {sub.creditHours} hrs/sem
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (window.confirm(`¿Eliminar la materia "${sub.name}" y sus actividades asociadas?`)) {
+                                    deleteSubject(sub.id);
+                                  }
+                                }}
+                                className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                title="Eliminar Materia"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                            <span>{subActivities.length} actividades creadas</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedSubjectId(sub.id);
+                                setActiveTab('grades');
+                              }}
+                              className="text-indigo-600 hover:underline font-semibold"
+                            >
+                              Calificar &rarr;
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -1126,47 +1248,89 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               Grados Registrados en la Institución ({groups.length})
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              {groups.map((grp) => {
-                const groupStudents = students.filter((s) => s.groupId === grp.id);
-                const groupSubjects = subjects.filter((s) => s.groupId === grp.id);
+            {groups.length === 0 ? (
+              <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-300">
+                <FolderPlus className="w-10 h-10 text-slate-400 mx-auto mb-2" />
+                <p className="text-sm font-bold text-slate-700">No hay grados creados todavía</p>
+                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                  Crea tu primer grado (ej. 10° Grado A) usando el formulario a la izquierda. Los estudiantes podrán seleccionarlo al registrarse.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {groups.map((grp) => {
+                  const groupStudents = students.filter((s) => s.groupId === grp.id);
+                  const groupSubjects = subjects.filter((s) => s.groupId === grp.id);
 
-                return (
-                  <div
-                    key={grp.id}
-                    className={`p-4 rounded-xl border transition-all ${
-                      grp.id === selectedGroupId
-                        ? 'border-indigo-600 bg-indigo-50/30'
-                        : 'border-slate-200 bg-white hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <span className="text-[10px] font-mono font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-md">
-                          {grp.code}
-                        </span>
-                        <h4 className="text-sm font-bold text-slate-900 mt-1">{grp.name}</h4>
-                        <p className="text-xs text-slate-500 mt-0.5">{grp.description}</p>
+                  return (
+                    <div
+                      key={grp.id}
+                      className={`p-4 rounded-xl border transition-all ${
+                        grp.id === selectedGroupId
+                          ? 'border-indigo-600 bg-indigo-50/30 shadow-xs'
+                          : 'border-slate-200 bg-white hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <span className="text-[10px] font-mono font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-md">
+                            {grp.code}
+                          </span>
+                          <h4 className="text-sm font-bold text-slate-900 mt-1">{grp.name}</h4>
+                          <p className="text-xs text-slate-500 mt-0.5">{grp.description || 'Sin descripción'}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
+                            Año {grp.academicYear}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`¿Eliminar el grado "${grp.name}"? También se eliminarán sus materias y actividades asociadas.`)) {
+                                deleteGroup(grp.id);
+                              }
+                            }}
+                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                            title="Eliminar Grado"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
-                      <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
-                        Año {grp.academicYear}
-                      </span>
-                    </div>
 
-                    <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-slate-100 text-xs">
-                      <div className="flex items-center gap-1.5 text-slate-600">
-                        <Users className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>{groupStudents.length} Estudiantes</span>
+                      <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-slate-100 text-xs">
+                        <div className="flex items-center gap-1.5 text-slate-600">
+                          <Users className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>{groupStudents.length} Estudiantes</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-slate-600">
+                          <BookOpen className="w-3.5 h-3.5 text-blue-600" />
+                          <span>{groupSubjects.length} Materias</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1.5 text-slate-600">
-                        <BookOpen className="w-3.5 h-3.5 text-blue-600" />
-                        <span>{groupSubjects.length} Materias</span>
+
+                      <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedGroupId(grp.id);
+                            setActiveTab('subjects');
+                          }}
+                          className="text-indigo-600 font-semibold hover:underline"
+                        >
+                          Gestionar Materias &rarr;
+                        </button>
+                        {grp.id === selectedGroupId && (
+                          <span className="text-[10px] font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-md">
+                            Seleccionado
+                          </span>
+                        )}
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1176,7 +1340,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="bg-white rounded-2xl p-6 shadow-xs border border-slate-200">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
             <div>
-              <h3 className="text-base font-bold text-slate-900">Directorio de Estudiantes Registrados</h3>
+              <h3 className="text-base font-bold text-slate-900">Directorio de Estudiantes Registrados ({students.length})</h3>
               <p className="text-xs text-slate-500">
                 Alumnos registrados con su Identificación (llave primaria) y grado seleccionado.
               </p>
@@ -1195,45 +1359,70 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 text-slate-600 uppercase text-[10px] font-bold tracking-wider border-b border-slate-200">
-                <tr>
-                  <th className="py-3 px-4">Identificación (Key)</th>
-                  <th className="py-3 px-4">Nombre Completo</th>
-                  <th className="py-3 px-4">Grado Asignado</th>
-                  <th className="py-3 px-4">Correo</th>
-                  <th className="py-3 px-4">Fecha de Registro</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {students
-                  .filter((st) => {
-                    if (!studentSearch.trim()) return true;
-                    const q = studentSearch.toLowerCase();
-                    return st.fullName.toLowerCase().includes(q) || st.id.toLowerCase().includes(q);
-                  })
-                  .map((st) => {
-                    const grp = groups.find((g) => g.id === st.groupId);
-                    return (
-                      <tr key={st.id} className="hover:bg-slate-50">
-                        <td className="py-3 px-4 font-mono font-bold text-slate-900">{st.id}</td>
-                        <td className="py-3 px-4 font-semibold text-slate-800">{st.fullName}</td>
-                        <td className="py-3 px-4">
-                          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                            {grp?.name || 'Sin Grado'}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-slate-500">{st.email || '—'}</td>
-                        <td className="py-3 px-4 text-slate-400">
-                          {new Date(st.registeredAt).toLocaleDateString('es-ES')}
-                        </td>
-                      </tr>
-                    );
-                  })}
-              </tbody>
-            </table>
-          </div>
+          {students.length === 0 ? (
+            <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-300">
+              <Users className="w-10 h-10 text-slate-400 mx-auto mb-2" />
+              <p className="text-sm font-bold text-slate-700">No hay estudiantes registrados todavía</p>
+              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                Los alumnos se registrarán usando su número de Identificación (llave primaria), su clave y seleccionando uno de los grados que has creado.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 text-slate-600 uppercase text-[10px] font-bold tracking-wider border-b border-slate-200">
+                  <tr>
+                    <th className="py-3 px-4">Identificación (Key)</th>
+                    <th className="py-3 px-4">Nombre Completo</th>
+                    <th className="py-3 px-4">Grado Asignado</th>
+                    <th className="py-3 px-4">Correo</th>
+                    <th className="py-3 px-4">Fecha de Registro</th>
+                    <th className="py-3 px-4 text-right">Acción</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {students
+                    .filter((st) => {
+                      if (!studentSearch.trim()) return true;
+                      const q = studentSearch.toLowerCase();
+                      return st.fullName.toLowerCase().includes(q) || st.id.toLowerCase().includes(q);
+                    })
+                    .map((st) => {
+                      const grp = groups.find((g) => g.id === st.groupId);
+                      return (
+                        <tr key={st.id} className="hover:bg-slate-50">
+                          <td className="py-3 px-4 font-mono font-bold text-slate-900">{st.id}</td>
+                          <td className="py-3 px-4 font-semibold text-slate-800">{st.fullName}</td>
+                          <td className="py-3 px-4">
+                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                              {grp?.name || 'Sin Grado'}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-slate-500">{st.email || '—'}</td>
+                          <td className="py-3 px-4 text-slate-400">
+                            {new Date(st.registeredAt).toLocaleDateString('es-ES')}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm(`¿Eliminar al estudiante ${st.fullName} (${st.id})? Se borrarán sus notas y evaluaciones.`)) {
+                                  deleteStudent(st.id);
+                                }
+                              }}
+                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors inline-flex items-center"
+                              title="Eliminar Estudiante"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>
