@@ -1,0 +1,7 @@
+{
+  "name": "EduGrade - Portal Académico y Coevaluación",
+  "description": "Plataforma académica con registro de estudiantes por grado, gestión de notas en tiempo real por el administrador, panel de coevaluación entre compañeros, notificaciones de tareas pendientes y sincronización con Supabase.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
